@@ -34,25 +34,49 @@ class DatabasePostgres:
 
     def create_table(self):
         """
-        Создание таблицы, если таблицы с таким названием не существует
+        Запрос на создание таблицы, если таблицы с таким названием не существует
         :return: None
         """
 
         with self.connection:
             self.cursor.execute(
-                "CREATE TABLE IF NOT EXISTS google_sheet ("
-                "№ serial PRIMARY KEY,"
-                "Заказ № INTEGER UNIQUE,"
-                "Стоимость,$ INTEGER,"
-                "Срок поставки VARCHAR (15)"
+                'CREATE TABLE IF NOT EXISTS google_sheet ('
+                '№ INTEGER PRIMARY KEY,'
+                '"Заказ №" INTEGER UNIQUE,'
+                '"Стоимость,$" INTEGER,'
+                '"Срок поставки" VARCHAR (15))'
             )
 
     def get_all_data(self):
         """
-        Получение всех данных из таблицы
+        Запрос на получение всех данных из таблицы
 
         :return: list[tuple], лист с кортежами данных каждой строки таблицы
         """
         with self.connection:
-            self.cursor.execute("SELECT * FROM qooqle_sheet")
+            self.cursor.execute("SELECT * FROM google_sheet")
         return self.cursor.fetchall()
+
+    def update_table(self, row):
+        """
+        Запрос на добавление строки в таблицу
+
+        :param row: tuple[list[int, int, int, str]], кортеж со списками, в которых содержатся данные для
+                    четырех столбцов таблицы
+        :return: None
+        """
+
+        with self.connection:
+            self.cursor.execute(
+                'INSERT INTO google_sheet (№, "Заказ №", "Стоимость,$", "Срок поставки") VALUES (%s, %s, %s, %s)',
+                (int(row[0]), int(row[1]), int(row[2]), row[3])
+            )
+
+    def delete_all_rows(self):
+        """
+        Запрос на удаление всех строк из таблицы, кроме заголовков
+
+        :return: None
+        """
+        with self.connection:
+            self.cursor.execute("DELETE FROM google_sheet WHERE № > 0")
