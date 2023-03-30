@@ -1,7 +1,7 @@
 """
 Модуль для получения корректного курса валюты.
-К сожалению воспользоваться сайтом cbr.ru не удалось. Сайт доступен только из РФ.
-Парсим Google.com,
+К сожалению воспользоваться сайтом cbr.ru не удалось, сайт доступен только из РФ.
+Парсим Google.com. Там обновление валюты, судя по документации, происходит раз в 5-10 минут.
 """
 
 from bs4 import BeautifulSoup
@@ -28,14 +28,14 @@ def get_cur_value(url=url):
     :return: float, стоимость валюты
     """
 
-    response = requests.get(url)
-    data = response.text
-    soup = BeautifulSoup(data, 'html.parser').text.split('=')[1]
+    response: requests.models.Response = requests.get(url)
+    data: str = response.text
+    soup: str = BeautifulSoup(data, 'html.parser').text.split('=')[1]
 
     # Поиск в строке значения типа "65,13" или "600,00"
     # Если значение будет больше 999,99, то гугл пишет цифру как 1.234,56 с использованием символа "."
-    current_value = re.search(r'\b\d+[,]\d{2}\b', soup)[0]
+    pattern: str = re.search(r'\b\d+[,]\d{2}\b', soup)[0]
 
     # Заменяем символ "," на символ "." и переводим в тип float
-    current_value = float(current_value.replace(',', '.'))
+    current_value: float = float(pattern.replace(',', '.'))
     return current_value
