@@ -3,12 +3,30 @@
 """
 
 import os
+import time
 
 import pygsheets
 from dotenv import load_dotenv
+from loguru import logger
+
+from database import DatabasePostgres
+
+
+load_dotenv()
+
+logger.add(
+    "log",
+    format='{time} {level} {message}',
+    level='DEBUG',
+    rotation='1 week',
+    compression='zip'
+)
 
 
 class GoogleTable:
+
+    current_table = None
+
     def __init__(
             self,
             credence: str = "client_secret.json",
@@ -55,15 +73,40 @@ class GoogleTable:
         """
         Функция для проверки соответствия текущего наполнения таблицы с таблицей в базе данных.
 
-        :return: Bool, True если таблицы одинаковые, False если таблицы отличаются.
+        :return: None
         """
-        
-        sheet_client: pygsheets.client.Client = self._get_sheet_client()
-        wks: pygsheets.Spreadsheet = self._get_sheet_by_url(sheet_client)
+
+        # Получаем объект гугл таблицы
+        try:
+            sheet_client: pygsheets.client.Client = self._get_sheet_client()
+            wks: pygsheets.Spreadsheet = self._get_sheet_by_url(sheet_client)
+        except Exception as error:
+            logger.debug(f"{error}: client didn't pass authorization")
+
+        # Берем диапазон ячеек A2:D1000
         all_table = wks.get_values("A2", "D1000")
-        return tuple(all_table)
+
+        # Проверяем, если предыдущая сохраненная таблица в объекте current_table отсутствует
+        # или не равна текущей переменной all_table, то обновляем таблицу в базе данных.
+        if self.current_table is None or self.current_table != all_table:
+            try:
+                db.delete_all_rows()
+            except Exception as error:
+                logger.debug(f"{error} query delete_all_rows didn't work")
+
+            for row in all_table:
+                try:
+                    db.update_table(row)
+                except Exception as error:
+                    logger.debug(f"{error} query update_table didn't work")
+
+            # обновляем объект current_table
+            self.current_table = all_table
 
 
 d = GoogleTable()
+db = DatabasePostgres()
+db.create_table()
 print(d.check_table_changes())
+print(db.get_all_data())
 
