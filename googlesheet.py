@@ -8,11 +8,15 @@ import time
 import pygsheets
 from dotenv import load_dotenv
 from loguru import logger
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 
 from database import DatabasePostgres
 
 
 load_dotenv()
+scheduler = BackgroundScheduler()
+db = DatabasePostgres()
 
 logger.add(
     "log",
@@ -72,6 +76,7 @@ class GoogleTable:
     def check_table_changes(self):
         """
         Функция для проверки соответствия текущего наполнения таблицы с таблицей в базе данных.
+        Если в гугл таблице были изменения, перезаписываем таблицу в базе данных.
 
         :return: None
         """
@@ -86,7 +91,7 @@ class GoogleTable:
         # Берем диапазон ячеек A2:D1000
         all_table = wks.get_values("A2", "D1000")
 
-        # Проверяем, если предыдущая сохраненная таблица в объекте current_table отсутствует
+        # Проверяем, если предыдущая сохраненная гугл таблица в объекте current_table отсутствует
         # или не равна текущей переменной all_table, то обновляем таблицу в базе данных.
         if self.current_table is None or self.current_table != all_table:
             try:
@@ -104,9 +109,28 @@ class GoogleTable:
             self.current_table = all_table
 
 
-d = GoogleTable()
-db = DatabasePostgres()
-db.create_table()
-print(d.check_table_changes())
-print(db.get_all_data())
+if __name__ == '__main__':
+    table = GoogleTable()
 
+    # Добавляем график обновления данных в таблице.
+    # Аргументы метода add_job:
+    # table.check_table_changes - метод, который будет выполняться по заданнаному графику;
+    # 'interval' - аргумент, обозначающий интервальное выполнение функции
+    # minutes=1 - аргумент, обозначающий частоту вызова метода table.check_table_changes один раз в минуту.
+    # start_time - аргумент, принимающий объект datetime и обозначающий с какого времени начнется интервальный
+    #              вызов метода table.check_table_changes;
+    # timezone - аргумент, обозначающий часовой пояс
+    scheduler.add_job(
+        table.check_table_changes,
+        'interval',
+        minutes=1,
+        start_date=datetime.now(),
+        timezone='Europe/Moscow'
+    )
+
+    scheduler.start()
+
+    # Кустарный способ зациклить работу программы.
+    # Время сна в цикле не влияет на частоту вызова функции из графика scheduler
+    while True:
+        time.sleep(300)
