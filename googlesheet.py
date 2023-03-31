@@ -119,7 +119,11 @@ class GoogleTable:
         expired_dates = ""
         if self.current_table:
             for row in self.current_table:
+                # Конвертируем дату из строки в объект datetime
                 date = datetime.strptime(row[3], "%d.%m.%Y")
+
                 if datetime.now() > date:
+                    # Делаем читаемый вид сообщения для пользователей в телеграм боте
                     expired_dates += f"Заказ №{row[1]} на сумму ${row[2]} истек {row[3]}\n"
+
         return expired_dates
