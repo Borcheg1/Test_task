@@ -38,18 +38,30 @@ logger.add(
 
 @dp.message_handler(commands="start")
 async def start(message: types.Message):
+    """
+    Обработчик команды "/start".
+    Заносит id пользователя в базу данных и отправляет приветственное сообщение
+
+    :param message: types.Message, входящее сообщение пользователя
+    :return: None
+    """
+
+    # Получаем id пользователя
     id = message.from_id
     answer = (
         f"Доброго времени суток!✋\n"
         f"Я оповещу Вас, если срок поставки истечет ⏰"
     )
 
+    # Проверяем наличие пользователя в базе денных.
+    # Если такого id нет, добавляем в базу
     if not telegram_db.check_user_exist(id):
         try:
             telegram_db.add_user(id)
         except Exception as error:
             logger.debug(f"{error}: id {id} (query add_user didn't work)")
 
+    # отправляем приветственное сообщение
     try:
         await bot.send_message(id, answer, parse_mode="Markdown")
     except Exception as error:
@@ -57,20 +69,33 @@ async def start(message: types.Message):
 
 
 async def reminder():
+    """
+    Функция отправляет сообщение в телеграм бота, если есть истекшие сроки поставки.
+
+    :return: None
+    """
+
+    # Проверяем, есть ли истекшие даты заказов
     if len(table.check_expired_date()):
         orders = table.check_expired_date()
+
+        # Получаем id пользователей из базы данных
         try:
             users_ids = telegram_db.get_users_ids()
         except Exception as error:
             logger.debug(f"{error}: (query get_users_ids didn't work)")
 
+        # Отправляем всем пользователям сообщение об истекших заказах
         for id in users_ids:
             if id[0]:
-                await bot.send_message(
-                    id[0],
-                    f"❗❗❗ У следующих заказов истек срок поставки:\n\n"
-                    f"{orders}"
-                )
+                try:
+                    await bot.send_message(
+                        id[0],
+                        f"❗❗❗ У следующих заказов истек срок поставки:\n\n"
+                        f"{orders}"
+                    )
+                except Exception as error:
+                    logger.debug(f"{error}; {id} (user didn't get message about expired orders)")
 
 
 if __name__ == '__main__':
@@ -82,6 +107,7 @@ if __name__ == '__main__':
     # start_time - аргумент, принимающий объект datetime и обозначающий с какого времени начнется интервальный
     #              вызов функции;
     # timezone - аргумент, обозначающий часовой пояс
+    # Обновление таблицы происходит один раз в минуту.
     scheduler.add_job(
         table.check_table_changes,
         'interval',
@@ -90,10 +116,12 @@ if __name__ == '__main__':
         timezone='Europe/Moscow'
     )
 
+    # Проверка на истекший срок поставки происходит раз в 30 минут
+    # Если есть истекший срок, отправляет сообщение в телеграм.
     scheduler.add_job(
         reminder,
         'interval',
-        minutes=1,
+        minutes=30,
         start_date=datetime.now(),
         timezone='Europe/Moscow'
     )
