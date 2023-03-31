@@ -2,29 +2,17 @@
 Класс GoogleTable отвечает за работу с Google Sheet.
 """
 
-import os
-import time
-
-import pygsheets
-from dotenv import load_dotenv
-from loguru import logger
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 
-from database import DatabasePostgres
+import pygsheets
+from loguru import logger
+from dotenv import load_dotenv
 
+import currency
+from database import GoogleSheetDatabase
 
 load_dotenv()
-scheduler = BackgroundScheduler()
-db = DatabasePostgres()
-
-logger.add(
-    "log",
-    format='{time} {level} {message}',
-    level='DEBUG',
-    rotation='1 week',
-    compression='zip'
-)
+sheet_db = GoogleSheetDatabase()
 
 
 class GoogleTable:
@@ -91,46 +79,47 @@ class GoogleTable:
         # Берем диапазон ячеек A2:D1000
         all_table = wks.get_values("A2", "D1000")
 
-        # Проверяем, если предыдущая сохраненная гугл таблица в объекте current_table отсутствует
-        # или не равна текущей переменной all_table, то обновляем таблицу в базе данных.
+        # Получаем актуальное значение валюты
+        cur = currency.get_cur_value()
+
+        # Проверяем, если предыдущая сохраненная гугл таблица в объекте current_table отсутствует,
+        # то создаем новую таблицу в базе данных (если таблицы с таким названием еще не существует).
+        # После создания или если таблица не равна текущей переменной all_table, то обновляем таблицу в базе данных.
         if self.current_table is None or self.current_table != all_table:
+            if self.current_table is None:
+                try:
+                    sheet_db.create_sheet_table()
+                except Exception as error:
+                    logger.debug(f"{error} query create_table didn't work")
+
             try:
-                db.delete_all_rows()
+                sheet_db.delete_all_rows()
             except Exception as error:
                 logger.debug(f"{error} query delete_all_rows didn't work")
 
             for row in all_table:
+                # Считаем цену в рублях
+                rub_col = round(int(row[2]) * cur, 2)
                 try:
-                    db.update_table(row)
+                    sheet_db.update_table(row, rub_col)
                 except Exception as error:
                     logger.debug(f"{error} query update_table didn't work")
 
             # обновляем объект current_table
             self.current_table = all_table
 
+    def check_expired_date(self):
+        """
+        Функция проверяет текущую дату, с датой в колонке "Срок поставки" в google_sheet.
+        Если текущая дата больше даты из колонки "Срок поставки", то добавляем этот заказ в список.
 
-if __name__ == '__main__':
-    table = GoogleTable()
+        :return: list[list[int, int, int, str]], список с заказами, у которых истек срок поставки.
+        """
 
-    # Добавляем график обновления данных в таблице.
-    # Аргументы метода add_job:
-    # table.check_table_changes - метод, который будет выполняться по заданнаному графику;
-    # 'interval' - аргумент, обозначающий интервальное выполнение функции
-    # minutes=1 - аргумент, обозначающий частоту вызова метода table.check_table_changes один раз в минуту.
-    # start_time - аргумент, принимающий объект datetime и обозначающий с какого времени начнется интервальный
-    #              вызов метода table.check_table_changes;
-    # timezone - аргумент, обозначающий часовой пояс
-    scheduler.add_job(
-        table.check_table_changes,
-        'interval',
-        minutes=1,
-        start_date=datetime.now(),
-        timezone='Europe/Moscow'
-    )
-
-    scheduler.start()
-
-    # Кустарный способ зациклить работу программы.
-    # Время сна в цикле не влияет на частоту вызова функции из графика scheduler
-    while True:
-        time.sleep(300)
+        expired_dates = ""
+        if self.current_table:
+            for row in self.current_table:
+                date = datetime.strptime(row[3], "%d.%m.%Y")
+                if datetime.now() > date:
+                    expired_dates += f"Заказ №{row[1]} на сумму ${row[2]} истек {row[3]}\n"
+        return expired_dates
