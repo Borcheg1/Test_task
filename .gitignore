@@ -11,3 +11,7 @@ client_secret.json
 
 # Logs
 log
+
+# Docker files
+Dockerfile
+.dockerignore
