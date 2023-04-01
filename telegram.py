@@ -99,7 +99,7 @@ async def reminder():
                 except Exception as error:
                     logger.debug(f"{error}; {id} (user didn't get message about expired orders)")
         else:
-            print("Order date has expired, check the telegram bot\n\n")
+            print("Order date has expired, check the telegram bot\n")
 
 
 if __name__ == '__main__':
