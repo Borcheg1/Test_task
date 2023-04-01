@@ -80,7 +80,10 @@ class GoogleTable:
         all_table = wks.get_values("A2", "D1000")
 
         # Получаем актуальное значение валюты
-        cur = currency.get_cur_value()
+        try:
+            cur = currency.get_cur_value()
+        except Exception as error:
+            logger.debug(f"{error} didn't get cur value")
 
         # Проверяем, если предыдущая сохраненная гугл таблица в объекте current_table отсутствует,
         # то создаем новую таблицу в базе данных (если таблицы с таким названием еще не существует).
@@ -105,7 +108,7 @@ class GoogleTable:
                 except Exception as error:
                     logger.debug(f"{error} query update_table didn't work")
             else:
-                print("The table has been updated\n\n")
+                print("The table has been updated\n")
 
             # обновляем объект current_table
             self.current_table = all_table
