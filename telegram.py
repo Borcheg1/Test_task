@@ -5,11 +5,13 @@
 
 from datetime import datetime
 import os
+import time
 
 from aiogram import Bot, Dispatcher, types, executor
 from dotenv import load_dotenv
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from art import tprint
 
 from database import TelegramDatabase
 from googlesheet import GoogleTable
@@ -96,9 +98,16 @@ async def reminder():
                     )
                 except Exception as error:
                     logger.debug(f"{error}; {id} (user didn't get message about expired orders)")
+        else:
+            print("Order date has expired, check the telegram bot\n\n")
 
 
 if __name__ == '__main__':
+    tprint('Hello!', 'starwars')
+    time.sleep(1.5)
+    print("I'll tell you when the table is updated.\n"
+          "Don't forget to activate the bot @Test_task12_bot!")
+
     # Добавляем график обновления данных в таблице.
     # Аргументы метода add_job:
     # table.check_table_changes - функция, которая будет выполняться по заданнаному графику;
