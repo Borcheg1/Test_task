@@ -104,6 +104,8 @@ class GoogleTable:
                     sheet_db.update_table(row, rub_col)
                 except Exception as error:
                     logger.debug(f"{error} query update_table didn't work")
+            else:
+                print("The table has been updated\n\n")
 
             # обновляем объект current_table
             self.current_table = all_table
